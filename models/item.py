@@ -43,9 +43,14 @@ class Item(ItemCreate):
     status: Literal["active", "inactive"] = Field(default="active")
     created_at: Optional[datetime] = Field(default=None)
     updated_at: Optional[datetime] = Field(default=None)
+    _links: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="HATEOAS-style links, e.g. {'rentals': '/orders?itemId=it-123'}",
+    )
 
 class PagedItems(BaseModel):
     items: List[Item]
-    page: int
-    page_size: int
-    total: int
+    nextPageToken: Optional[str] = Field(default=None)
+    page: int = Field(1, ge=1)
+    page_size: int = Field(20, ge=1)
+    total: int = Field(0, ge=0)

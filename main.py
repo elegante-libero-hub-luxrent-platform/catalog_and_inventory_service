@@ -9,6 +9,7 @@ from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi import Query, Path, Header
+from fastapi import Response
 from typing import Optional
 
 from models.item import Item, ItemCreate, ItemUpdate, PagedItems
@@ -44,9 +45,22 @@ def list_catalog_items(
 ):
     raise NOT_IMPL
 
+
 @app.post("/catalog/items", response_model=Item, status_code=201, tags=["catalog"])
-def create_catalog_item(body: ItemCreate):
-    raise NOT_IMPL
+def create_catalog_item(body: ItemCreate, response: Response):
+    new_id = "it-999"  
+
+    item = Item(
+        id=new_id,
+        **body.model_dump(),
+        status="active",
+        created_at=None,
+        updated_at=None,
+    )
+    item._links = {"rentals": f"/orders?itemId={item.id}"}
+    response.headers["Location"] = f"/catalog/items/{item.id}"
+
+    return item
 
 @app.get("/catalog/items/{id}", response_model=Item, tags=["catalog"])
 def get_catalog_item(id: str = Path(..., description="Catalog item ID (string)")):
@@ -70,7 +84,12 @@ def list_physical_items(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
-    raise NOT_IMPL
+    return PagedPhysicalItems(
+        items=[],
+        page=page,
+        page_size=page_size,
+        total=0,
+    )
 
 # availability
 @app.get("/availability", response_model=Availability, tags=["inventory"])
@@ -79,7 +98,12 @@ def check_availability(
     start_date: date = Query(...),
     end_date: date = Query(...),
 ):
-    raise NOT_IMPL
+    return Availability(
+        sku=sku,
+        start_date=start_date,
+        end_date=end_date,
+        available_count=3,
+    )
 
 # -----------------------------------------------------------------------------
 # Reservations
