@@ -2,33 +2,36 @@ from __future__ import annotations
 
 from typing import Optional, List, Dict, Literal
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+
 
 class ItemCreate(BaseModel):
-    sku: str = Field(..., description="Unique SKU code")
-    name: str = Field(..., description="Display name")
-    brand: str = Field(..., description="Brand")
-    category: str = Field(..., description="Category (e.g., handbag, dress)")
-    description: Optional[str] = Field(default=None, description="Long description")
-    photos: List[str] = Field(default_factory=list, description="Photo URLs")
-    rent_price_cents: int = Field(..., ge=0, description="Rental price in cents")
-    deposit_cents: int = Field(..., ge=0, description="Deposit in cents")
-    attrs: Dict[str, str] = Field(default_factory=dict, description="Arbitrary attributes")
+    """Request body for creating a catalog item."""
 
-    model_config = {"json_schema_extra": {"example": {
-        "sku": "BAG-PRADA-001",
-        "name": "PRADA Re-Edition",
-        "brand": "PRADA",
-        "category": "handbag",
-        "description": "Nylon mini bag",
-        "photos": ["https://cdn.example.com/img/prada-1.jpg"],
-        "rent_price_cents": 4999,
-        "deposit_cents": 100000,
-        "attrs": {"color": "black", "season": "AW24"}
-    }}}
+    sku: str = Field(..., description="Unique SKU code")
+    name: str = Field(..., description="Display name of the item")
+    brand: str = Field(..., description="Brand name")
+    category: str = Field(..., description="Category, e.g., handbag, dress")
+    description: Optional[str] = Field(
+        default=None, description="Long description of the item"
+    )
+    photos: List[str] = Field(
+        default_factory=list, description="List of photo URLs"
+    )
+    rent_price_cents: int = Field(
+        ..., ge=0, description="Rental price in cents"
+    )
+    deposit_cents: int = Field(
+        ..., ge=0, description="Deposit amount in cents"
+    )
+    attrs: Dict[str, str] = Field(
+        default_factory=dict, description="Arbitrary attributes (color, material, etc.)"
+    )
+
 
 class ItemUpdate(BaseModel):
-    sku: Optional[str] = None
+    """Partial update for a catalog item."""
+
     name: Optional[str] = None
     brand: Optional[str] = None
     category: Optional[str] = None
@@ -37,20 +40,49 @@ class ItemUpdate(BaseModel):
     rent_price_cents: Optional[int] = Field(default=None, ge=0)
     deposit_cents: Optional[int] = Field(default=None, ge=0)
     attrs: Optional[Dict[str, str]] = None
+    status: Optional[Literal["active", "inactive"]] = None
+
 
 class Item(ItemCreate):
-    id: str = Field(..., description="Catalog item id (string)")
-    status: Literal["active", "inactive"] = Field(default="active")
-    created_at: Optional[datetime] = Field(default=None)
-    updated_at: Optional[datetime] = Field(default=None)
-    _links: Optional[Dict[str, str]] = Field(
+    """Full catalog item representation as stored in DB / returned by API."""
+
+    id: str = Field(..., description="Catalog item id (e.g., 'it-1234abcd')")
+    status: Literal["active", "inactive"] = Field(
+        default="active", description="Item status"
+    )
+    created_at: Optional[datetime] = Field(
+        default=None, description="Creation timestamp"
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, description="Last update timestamp"
+    )
+    
+    links: Optional[Dict[str, str]] = Field(
         default=None,
-        description="HATEOAS-style links, e.g. {'rentals': '/orders?itemId=it-123'}",
+        alias="_links",
+        description="HATEOAS-style links, e.g. {'rentals': '/orders?itemId=it-1234'}",
     )
 
+    
+    model_config = ConfigDict(populate_by_name=True)
+
 class PagedItems(BaseModel):
+    """Paginated response for GET /catalog/items."""
+
     items: List[Item]
-    nextPageToken: Optional[str] = Field(default=None)
-    page: int = Field(1, ge=1)
-    page_size: int = Field(20, ge=1)
-    total: int = Field(0, ge=0)
+    # Sprint2 
+    nextPageToken: Optional[str] = Field(
+        default=None,
+        description="Opaque cursor for the next page; null/omitted if no more pages.",
+    )
+    #for frontend
+    page: int = Field(
+        default=1, ge=1, description="Current page number (for UI; not part of cursor)"
+    )
+    page_size: int = Field(
+        ..., ge=1, description="Number of items returned in this page"
+    )
+    total: Optional[int] = Field(
+        default=None,
+        description="Optional total number of items; can be None if not computed.",
+    )
