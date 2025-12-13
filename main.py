@@ -141,7 +141,7 @@ def create_catalog_item(body: ItemCreate, response: Response):
         publish_event(
             event_type="CatalogItemCreated",
             payload={
-                "itemId": item.id,main
+                "itemId": item.id,
                 "sku": item.sku,
                 "name": item.name,
                 "brand": item.brand,
