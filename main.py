@@ -6,6 +6,8 @@ import os
 import socket
 from datetime import datetime, date
 from typing import Dict, List, Optional
+from utils.pubsub_client import publish_event
+
 
 from fastapi import FastAPI, HTTPException, Query, Path, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -135,6 +137,22 @@ def create_catalog_item(body: ItemCreate, response: Response):
 
     item = _row_to_item(row)
     response.headers["Location"] = f"/catalog/items/{item.id}"
+    try:
+        publish_event(
+            event_type="CatalogItemCreated",
+            payload={
+                "itemId": item.id,main
+                "sku": item.sku,
+                "name": item.name,
+                "brand": item.brand,
+                "category": item.category,
+                "rent_price_cents": item.rent_price_cents,
+                "deposit_cents": item.deposit_cents,
+            },
+        )
+    except Exception as e:
+        print(f"[WARN] Failed to publish CatalogItemCreated event: {e}")
+    
     return item
 
 
