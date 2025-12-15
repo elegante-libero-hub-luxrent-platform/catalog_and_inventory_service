@@ -136,7 +136,7 @@ def create_catalog_item(body: ItemCreate, response: Response):
         "active",
     )
     try:
-    execute(sql, params)
+        execute(sql, params)
     except mysql.connector.errors.IntegrityError as e:
         # Check if it's a duplicate key error (SKU already exists)
         if "Duplicate entry" in str(e) and "sku" in str(e).lower():
