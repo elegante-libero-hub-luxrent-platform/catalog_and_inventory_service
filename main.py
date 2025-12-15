@@ -11,6 +11,7 @@ from utils.pubsub_client import publish_event
 
 from fastapi import FastAPI, HTTPException, Query, Path, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
+import mysql.connector
 
 from models.item import Item, ItemCreate, ItemUpdate, PagedItems
 from models.physical_item import PagedPhysicalItems
@@ -41,7 +42,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    # Browsers reject responses that combine:
+    #   Access-Control-Allow-Origin: *
+    #   Access-Control-Allow-Credentials: true
+    # This causes the Web UI to show "Failed to fetch" even if the server handled the request.
+    # We don't use cookies for this demo, so disable credentialed requests.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"], 
 )
@@ -129,7 +135,20 @@ def create_catalog_item(body: ItemCreate, response: Response):
         json.dumps(body.attrs or {}),
         "active",
     )
+    try:
     execute(sql, params)
+    except mysql.connector.errors.IntegrityError as e:
+        # Check if it's a duplicate key error (SKU already exists)
+        if "Duplicate entry" in str(e) and "sku" in str(e).lower():
+            raise HTTPException(
+                status_code=409,
+                detail=f"SKU '{body.sku}' already exists. Please use a unique SKU."
+            )
+        # Re-raise other integrity errors as 400
+        raise HTTPException(
+            status_code=400,
+            detail=f"Database constraint violation: {str(e)}"
+        )
 
     row = query_one("SELECT * FROM catalog_items WHERE id=%s", (new_id,))
     if not row:
